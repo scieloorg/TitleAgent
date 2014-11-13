@@ -1,0 +1,3 @@
+zerorpc
+-e git+git://github.com/scieloorg/isis2json.git#egg=isis2json
+-e git+git://github.com/scieloorg/xylose.git#egg=xylose
