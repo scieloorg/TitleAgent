@@ -19,24 +19,6 @@ from articlemetarpcclient import ArticleMetaRPCClient
 
 THROTTLE_TIME = 60*10 # 10 minutes
 
-class ItemsChecksum(object):
-
-    def __init__(self):
-        self.items = {}
-
-    def is_checksum_equal(self, item, raw_data):
-        current_checksum = hashlib.md5(raw_data).hexdigest()
-
-        checksum = self.items.get(item, None)
-
-        if not checksum or checksum != current_checksum:
-            self.items[item] = current_checksum
-            return False
-
-        return True
-
-CHECKSUMS = ItemsChecksum()
-
 
 def _config_logging(logging_level='INFO', logging_file=None):
 
@@ -58,6 +40,44 @@ def _config_logging(logging_level='INFO', logging_file=None):
 
     logging.basicConfig(**logging_config)
 
+
+class ItemsChecksum(object):
+
+    def __init__(self):
+        self.items = {}
+
+    def is_checksum_equal(self, item, raw_data):
+        current_checksum = hashlib.md5(raw_data).hexdigest()
+
+        checksum = self.items.get(item, None)
+
+        if not checksum or checksum != current_checksum:
+            self.items[item] = current_checksum
+            return False
+
+        return True
+
+CHECKSUMS = ItemsChecksum()
+
+
+def get_mtime(filepath):
+    return os.stat(filepath).st_mtime
+ 
+
+class FileMonitor(object):
+
+    def __init__(self, filepath):
+        self.filepath = filepath
+        self.last_modified = get_mtime(filepath)
+ 
+    def has_changed(self):
+        mtime = get_mtime(self.filepath)
+ 
+        if self.last_modified < mtime:
+            self.last_modified = mtime
+            return True
+ 
+        return False
 
 class CISIS(object):
     """
@@ -158,11 +178,12 @@ def main(monitored_file, cisis_path, collection, throttle=THROTTLE_TIME):
 
     if not inspect_file(monitored_file):
         exit()
+
+    fm = FileMonitor(monitored_file)
     
     while True:
         logging.info('Checking changes')
-
-        if not CHECKSUMS.is_checksum_equal(monitored_file, open(monitored_file).read()):
+        if fm.has_changed():
             dispatcher(cisis.isis2json(monitored_file), collection)
 
         time.sleep(int(throttle))
